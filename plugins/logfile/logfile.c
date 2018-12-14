@@ -15,10 +15,11 @@ static ssize_t uwsgi_file_logger(struct uwsgi_logger *ul, char *message, size_t 
 			char *backupname = NULL;
 			char *maxsize = NULL;
 			char *logfile = NULL;
+			char *mode = NULL;
 
 			if (strchr(ul->arg, '=')) {
 				if (uwsgi_kvlist_parse(ul->arg, strlen(ul->arg), ',', '=',
-					"logfile", &logfile, "backupname", &backupname, "maxsize", &maxsize, NULL)) {
+					"logfile", &logfile, "backupname", &backupname, "maxsize", &maxsize, "mode", &mode, NULL)) {
 					uwsgi_log("[uwsgi-logfile] invalid keyval syntax\n");
 					exit(1);
 				}
@@ -45,6 +46,21 @@ static ssize_t uwsgi_file_logger(struct uwsgi_logger *ul, char *message, size_t 
 			}
 
 			ul->fd = open(logfile, O_RDWR | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR | S_IRGRP);
+
+			if (mode) {
+				int error = 0;
+				mode_t modeval = uwsgi_mode_t(mode, &error);
+				if (error) {
+					uwsgi_log("[uwsgi-logfile] invalid mode\n");
+					exit(1);
+				}
+				if (fchmod(ul->fd, modeval)) {
+					uwsgi_log("[uwsgi-logfile] failed to set log file mode\n");
+					exit(1);
+				}
+				free(mode);
+			}
+
 			if (ul->fd >= 0) {
 				ul->configured = 1;
 			}	
